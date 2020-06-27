@@ -229,3 +229,272 @@ final class ReducerTests: XCTestCase {
     self.wait(for: [expectation], timeout: 0.1)
   }
 }
+
+// MARK: - ChouTi Extensions
+
+extension ReducerTests {
+
+  func testPullback() {
+    struct ParentState: Equatable {
+      var count = 0
+      var childState = ChildState()
+    }
+    enum ParentAction: Equatable {
+      case increment
+      case childAction(ChildAction)
+    }
+
+    struct ChildState: Equatable {
+      var count = 0
+    }
+    enum ChildAction: Equatable { case increment }
+    let childReducer = Reducer<ChildState, ChildAction, Void> { state, _, _ in
+      state.count += 1
+      return .none
+    }
+
+    let store = TestStore(
+      initialState: ParentState(),
+      reducer: childReducer.pullback(
+        state: \.childState,
+        action: /ParentAction.childAction,
+        environment: { _ in }
+      ),
+      environment: ()
+    )
+
+    store.assert(
+      .send(.childAction(.increment)) {
+        $0.count = 0
+        $0.childState.count = 1
+      }
+    )
+  }
+
+  func testPullback_noCasePath() {
+    struct ParentState: Equatable {
+      var count = 0
+      var childState = ChildState()
+    }
+    enum ParentAction: Equatable {
+      case increment
+      case childAction(ChildAction)
+    }
+
+    struct ChildState: Equatable {
+      var count = 0
+    }
+    enum ChildAction: Equatable { case increment }
+    let childReducer = Reducer<ChildState, ChildAction, Void> { state, _, _ in
+      state.count += 1
+      return .none
+    }
+
+    let store = TestStore(
+      initialState: ParentState(),
+      reducer: childReducer.pullback(
+        state: \.childState,
+        toLocalAction: {
+          if case .childAction(let childAction) = $0 {
+            return childAction
+          } else {
+            return nil
+          }
+        },
+        toGlobalAction: { ParentAction.childAction($0) },
+        environment: { _ in }
+      ),
+      environment: ()
+    )
+
+    store.assert(
+      .send(.childAction(.increment)) {
+        $0.count = 0
+        $0.childState.count = 1
+      }
+    )
+  }
+
+  func testPullback_noCasePath_blockingLocalAction() {
+    struct ParentState: Equatable {
+      var count = 0
+      var childState = ChildState()
+    }
+    enum ParentAction: Equatable {
+      case increment
+      case childAction(ChildAction)
+    }
+
+    struct ChildState: Equatable {
+      var count = 0
+    }
+    enum ChildAction: Equatable { case increment }
+    let childReducer = Reducer<ChildState, ChildAction, Void> { state, _, _ in
+      state.count += 1
+      return .none
+    }
+
+    let store = TestStore(
+      initialState: ParentState(),
+      reducer: childReducer.pullback(
+        state: \.childState,
+        toLocalAction: { _ in nil }, // <- Blocks global action to local action.
+        toGlobalAction: { ParentAction.childAction($0) },
+        environment: { _ in }
+      ),
+      environment: ()
+    )
+
+    store.assert(
+      .send(.childAction(.increment)) {
+        $0.count = 0
+        $0.childState.count = 0
+      }
+    )
+  }
+
+  func testForEach() {
+    struct ParentState: Equatable {
+      var childState: [ChildState] = []
+    }
+    enum ParentAction: Equatable {
+      case childAction(Int, ChildAction)
+      case clear
+    }
+    let parentReducer = Reducer<ParentState, ParentAction, Void> { state, action, _ in
+      switch action {
+      case .childAction:
+        return .none
+      case .clear:
+        state.childState = []
+        return .none
+      }
+    }
+
+    struct ChildState: Equatable {
+      var count = 0
+    }
+    enum ChildAction: Equatable { case increment }
+    let childReducer = Reducer<ChildState, ChildAction, Void> { state, _, _ in
+      state.count += 1
+      return .none
+    }
+
+    let store = TestStore(
+      initialState: ParentState(
+        childState: [
+          ChildState(count: 0),
+          ChildState(count: 0),
+          ChildState(count: 0),
+        ]
+      ),
+      reducer: .combine(
+        childReducer.forEach(
+          state: \.childState,
+          action: /ParentAction.childAction,
+          environment: { _ in }
+        ),
+        parentReducer
+      ),
+      environment: ()
+    )
+
+    store.assert(
+      .send(.childAction(1, .increment)) {
+        $0.childState[0].count = 0
+        $0.childState[1].count = 1
+        $0.childState[2].count = 0
+      }
+    )
+
+    store.assert(
+      .send(.childAction(2, .increment)) {
+        $0.childState[0].count = 0
+        $0.childState[1].count = 1
+        $0.childState[2].count = 1
+      }
+    )
+
+    store.assert(
+      .send(.clear) {
+        $0.childState = []
+      }
+    )
+  }
+
+  func testForEachSafe() {
+    struct ParentState: Equatable {
+      var childState: [ChildState] = []
+    }
+    enum ParentAction: Equatable {
+      case childAction(Int, ChildAction)
+      case clear
+    }
+    let parentReducer = Reducer<ParentState, ParentAction, Void> { state, action, _ in
+      switch action {
+      case .childAction:
+        return .none
+      case .clear:
+        state.childState = []
+        return .none
+      }
+    }
+
+    struct ChildState: Equatable {
+      var count = 0
+    }
+    enum ChildAction: Equatable { case increment }
+    let childReducer = Reducer<ChildState, ChildAction, Void> { state, _, _ in
+      state.count += 1
+      return .none
+    }
+
+    let store = TestStore(
+      initialState: ParentState(
+        childState: [
+          ChildState(count: 0),
+          ChildState(count: 0),
+          ChildState(count: 0),
+        ]
+      ),
+      reducer: .combine(
+        childReducer.forEachSafe(
+          state: \.childState,
+          action: /ParentAction.childAction,
+          environment: { _ in }
+        ),
+        parentReducer
+      ),
+      environment: ()
+    )
+
+    store.assert(
+      .send(.childAction(1, .increment)) {
+        $0.childState[0].count = 0
+        $0.childState[1].count = 1
+        $0.childState[2].count = 0
+      }
+    )
+
+    store.assert(
+      .send(.childAction(2, .increment)) {
+        $0.childState[0].count = 0
+        $0.childState[1].count = 1
+        $0.childState[2].count = 1
+      }
+    )
+
+    store.assert(
+      .send(.clear) {
+        $0.childState = []
+      }
+    )
+
+    // This is safe in production
+    // store.assert(
+    //   .send(.childAction(2, .increment)) {
+    //     $0.childState = []
+    //   }
+    // )
+  }
+}
