@@ -295,7 +295,7 @@
               Must handle \(receivedActions.count) received \
               action\(receivedActions.count == 1 ? "" : "s") before sending an action: …
 
-              Unhandled actions: \(debugOutput(receivedActions))
+              Unhandled actions: \(debugOutput(receivedActions.map { $0.action }))
               """,
               file: step.file, line: step.line
             )
@@ -325,7 +325,7 @@
               .map { "\($0.indent(by: 4))\n\n(Expected: −, Received: +)" }
               ?? """
               Expected:
-              \(String(describing: expectedState).indent(by: 2))
+              \(String(describing: expectedAction).indent(by: 2))
 
               Received:
               \(String(describing: receivedAction).indent(by: 2))
@@ -355,7 +355,7 @@
               Must handle \(receivedActions.count) received \
               action\(receivedActions.count == 1 ? "" : "s") before performing this work: …
 
-              Unhandled actions: \(debugOutput(receivedActions))
+              Unhandled actions: \(debugOutput(receivedActions.map { $0.action }))
               """,
               file: step.file, line: step.line
             )
@@ -373,7 +373,7 @@
               Must handle \(receivedActions.count) received \
               action\(receivedActions.count == 1 ? "" : "s") before performing this work: …
 
-              Unhandled actions: \(debugOutput(receivedActions))
+              Unhandled actions: \(debugOutput(receivedActions.map { $0.action }))
               """,
               file: step.file, line: step.line
             )
@@ -392,7 +392,7 @@
           Received \(receivedActions.count) unexpected \
           action\(receivedActions.count == 1 ? "" : "s"): …
 
-          Unhandled actions: \(debugOutput(receivedActions))
+          Unhandled actions: \(debugOutput(receivedActions.map { $0.action }))
           """,
           file: file, line: line
         )
