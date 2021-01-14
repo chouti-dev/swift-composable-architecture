@@ -2,8 +2,8 @@
 
 import Foundation
 
-public extension Store where State: Equatable {
-  var viewStore: ViewStore<State, Action> {
+extension Store where State: Equatable {
+  public var viewStore: ViewStore<State, Action> {
     ViewStore(self)
   }
 }

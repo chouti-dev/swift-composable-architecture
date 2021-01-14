@@ -338,7 +338,7 @@ extension ReducerTests {
       initialState: ParentState(),
       reducer: childReducer.pullback(
         state: \.childState,
-        toLocalAction: { _ in nil }, // <- Blocks global action to local action.
+        toLocalAction: { _ in nil },  // <- Blocks global action to local action.
         toGlobalAction: { ParentAction.childAction($0) },
         environment: { _ in }
       ),
